@@ -1,0 +1,6 @@
+title = "Jan Awaaz gitleaks config"
+
+# Default rules only. No path allowlists: example env files are scanned too,
+# so they must contain obvious placeholders only.
+[extend]
+useDefault = true

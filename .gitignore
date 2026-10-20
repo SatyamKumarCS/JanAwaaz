@@ -1,0 +1,66 @@
+# --- Local-only planning and private data (never committed) ---
+/.scratch/
+/JanAwaaz PRD*.md
+.DS_Store
+
+# --- Environment files: ignore all, allow only *.example placeholders ---
+.env
+.env.*
+!*.example
+!.env.example
+!.env.neon.example
+
+# --- Credentials / keys ---
+*.pem
+*.key
+*.p12
+*.p8
+*.jks
+*.keystore
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist
+credentials.json
+service-account*.json
+*.age
+age-key*.txt
+
+# --- Models and private evaluation data ---
+*.onnx
+*.npy
+/services/ai/eval/private/
+/services/ai/models/
+
+# --- Dependencies and build output ---
+node_modules/
+.pnpm-store/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+coverage/
+.next/
+out/
+*.tsbuildinfo
+.turbo/
+
+# --- Expo / React Native ---
+.expo/
+.expo-shared/
+apps/mobile/ios/
+apps/mobile/android/
+*.apk
+*.aab
+*.ipa
+web-build/
+
+# --- Logs ---
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Next.js generated types
+next-env.d.ts

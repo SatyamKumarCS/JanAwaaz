@@ -1,0 +1,8 @@
+pre-commit:
+  commands:
+    images-guard:
+      run: node scripts/check-images.mjs --staged
+pre-push:
+  commands:
+    gitleaks:
+      run: gitleaks git --no-banner --redact .

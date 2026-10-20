@@ -1,0 +1,25 @@
+{
+  "ComplaintStatus": [
+    "submitted",
+    "verified",
+    "routed",
+    "assigned",
+    "in_progress",
+    "resolved",
+    "rejected",
+    "escalated"
+  ],
+  "Category": [
+    "roads",
+    "sanitation",
+    "streetlights",
+    "water_supply",
+    "drainage"
+  ],
+  "Priority": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ]
+}

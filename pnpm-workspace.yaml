@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+  - services/api
+
+# pnpm 10 blocks dependency build scripts unless listed here.
+onlyBuiltDependencies:
+  - lefthook
+  - prisma
+  - '@prisma/engines'
+  - esbuild

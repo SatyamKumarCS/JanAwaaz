@@ -1,0 +1,31 @@
+[project]
+name = "janawaaz-ai"
+version = "0.0.0"
+description = "Jan Awaaz AI service (classifier + duplicates). Scaffold only (I-01)."
+requires-python = "==3.13.*"
+dependencies = [
+    "fastapi==0.156.3",
+    "uvicorn==0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx==0.28.1",
+    "pytest==9.1.1",
+    "ruff==0.17.1",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["eval_private: local-only evaluation on private data (never in CI)"]
+addopts = "-m 'not eval_private'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard"],
+  "schedule": ["before 6am on monday"],
+  "timezone": "Asia/Kolkata",
+  "automerge": false,
+  "rangeStrategy": "pin",
+  "packageRules": [
+    {
+      "description": "Expo SDK set moves as one unit (D-17 Q6): one weekly SDK 58 patch PR, validated by `expo install --check`.",
+      "groupName": "expo sdk 58 patches",
+      "matchPackageNames": ["expo", "expo-*", "react", "react-dom", "react-native", "react-native-*", "@types/react", "babel-preset-expo", "nativewind", "tailwindcss"],
+      "matchUpdateTypes": ["patch"]
+    },
+    {
+      "description": "No individual minor/major updates for Expo-managed packages; SDK majors need your approval.",
+      "matchPackageNames": ["expo", "expo-*", "react", "react-dom", "react-native", "react-native-*", "@types/react", "babel-preset-expo", "nativewind", "tailwindcss"],
+      "matchUpdateTypes": ["minor", "major"],
+      "dependencyDashboardApproval": true,
+      "labels": ["needs-approval"]
+    },
+    {
+      "description": "Runtime majors (Node / Python / PostgreSQL) need your approval; Postgres moves with Neon's major (D-18 Q6).",
+      "matchPackageNames": ["node", "python", "postgres", "pgvector/pgvector"],
+      "matchUpdateTypes": ["major", "minor"],
+      "groupName": "runtime majors",
+      "dependencyDashboardApproval": true,
+      "labels": ["needs-approval"]
+    },
+    {
+      "description": "All other majors need approval.",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true,
+      "labels": ["needs-approval"]
+    },
+    {
+      "description": "Lockfiles grouped weekly.",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "groupName": "lockfiles"
+    }
+  ],
+  "lockFileMaintenance": { "enabled": true, "schedule": ["before 6am on monday"] },
+  "pip_requirements": { "enabled": false }
+}
