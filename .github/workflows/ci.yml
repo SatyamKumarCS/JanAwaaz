@@ -28,6 +28,8 @@ jobs:
         run: pnpm check:pins
       - name: Images / size guard (D-08 Q6)
         run: pnpm check:images
+      - name: Guard script tests
+        run: pnpm test:scripts
       - name: Env files ignored
         run: |
           touch .env .env.neon
