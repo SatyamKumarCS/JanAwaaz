@@ -24,6 +24,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --directory services/ai --locked
+      - name: Generate Prisma client (no database is contacted)
+        run: pnpm db:generate
+        env:
+          # Placeholder only so prisma.config.ts can resolve DIRECT_URL; nothing connects to it.
+          DATABASE_URL: postgresql://placeholder@localhost:5432/placeholder
+          DIRECT_URL: postgresql://placeholder@localhost:5432/placeholder
       - name: Pins (D-17 Q1)
         run: pnpm check:pins
       - name: Images / size guard (D-08 Q6)
@@ -52,12 +58,45 @@ jobs:
           curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz gitleaks
           ./gitleaks git --no-banner --redact .
 
-  # Enabled by I-02 (Prisma schema + migrations against a Postgres service container).
+  # I-02: migrations and DB constraint tests against a throwaway Postgres service container of the
+  # pinned dev image. Never connects to Neon or any cloud/production database.
   prisma-migrate:
-    if: false
     runs-on: ubuntu-24.04
+    services:
+      db:
+        image: pgvector/pgvector:0.8.7-pg18-trixie@sha256:9d9c930220cb9bf2f956d10a8f909cf9973d9672ca0278aef2c1e6facccad2e0
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: janawaaz_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d janawaaz_ci"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/janawaaz_ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/janawaaz_ci
     steps:
-      - run: echo "enabled in I-02"
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - name: Migrate from empty and check status
+        run: |
+          set -o pipefail
+          pnpm db:deploy 2>&1 | tee -a db.log
+          pnpm db:status 2>&1 | tee -a db.log
+          grep -q "Database schema is up to date" db.log
+      - name: DB constraint tests (throwaway database)
+        run: pnpm test:db 2>&1 | tee -a db.log
+      - name: No connection string with credentials in output
+        run: |
+          if grep -E "postgres(ql)?://[^[ ]+@" db.log; then echo "connection string leaked"; exit 1; fi
 
   # Enabled by I-41 (Dockerfiles + pinned-digest checks).
   docker-build:

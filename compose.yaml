@@ -1,0 +1,33 @@
+# Minimal I-41 database foundation (approved prerequisite for I-02).
+# Only the `db` service for now; mailpit/api/ai, profiles and measured caps arrive with the rest of I-41.
+name: janawaaz
+
+services:
+  db:
+    # Exact tag + multi-arch index digest (D-18 Q6/Q7). PG major 18 matches Neon.
+    image: pgvector/pgvector:0.8.7-pg18-trixie@sha256:9d9c930220cb9bf2f956d10a8f909cf9973d9672ca0278aef2c1e6facccad2e0
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env (see .env.example)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see .env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env (see .env.example)}
+    # Tuned for the 8 GB Mac (spec §14.4).
+    command: ["postgres", "-c", "shared_buffers=32MB", "-c", "max_connections=30"]
+    ports:
+      # Loopback only. Host port defaults to 5432 (spec); override with DB_HOST_PORT in .env
+      # when 5432 is taken locally (e.g. a Homebrew Postgres).
+      - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M # provisional until I-41 measures it (D-18 Q10)
+
+volumes:
+  pgdata:

@@ -57,6 +57,9 @@ apps/mobile/android/
 *.ipa
 web-build/
 
+# --- Generated Prisma client (rebuilt by `pnpm db:generate`) ---
+services/api/src/generated/
+
 # --- Logs ---
 *.log
 npm-debug.log*

@@ -1,0 +1,775 @@
+// Jan Awaaz data model (I-02). PRD §5.4 tables plus the spec §3.3 fields the closed
+// decisions accepted. Enums follow spec §3.2. Column names are snake_case to match the spec.
+// Constraints Prisma cannot express (CHECKs, partial unique index, pgvector extension) are
+// added as raw SQL in the migration.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Enums (spec §3.2 and decisions) ----------
+
+enum ComplaintStatus {
+  submitted
+  verified
+  routed
+  assigned
+  in_progress
+  resolved
+  rejected
+  escalated
+
+  @@map("complaint_status")
+}
+
+enum Category {
+  roads
+  sanitation
+  streetlights
+  water_supply
+  drainage
+
+  @@map("category")
+}
+
+enum Priority {
+  low
+  medium
+  high
+  critical
+
+  @@map("priority")
+}
+
+enum AreaType {
+  urban
+  rural
+
+  @@map("area_type")
+}
+
+enum UserRole {
+  staff
+  admin
+
+  @@map("user_role")
+}
+
+enum NotificationChannel {
+  email
+  push
+  whatsapp
+
+  @@map("notification_channel")
+}
+
+enum NotificationStatus {
+  queued
+  sent
+  failed
+
+  @@map("notification_status")
+}
+
+/// D-19 / D-09: records sandboxed or logged sends without changing the FR-6.3 status enum.
+enum DeliveryMode {
+  log
+  sandbox
+  live
+
+  @@map("delivery_mode")
+}
+
+/// D-05 Q6
+enum OfficeKind {
+  gram_panchayat
+  bdo
+  nagar_nigam_zone
+  municipal_commissioner
+  dept_division
+  dept_circle
+  dm_igrs
+
+  @@map("office_kind")
+}
+
+/// D-04 Q1 (+ D-04 Q5 escalated, spec §3.2)
+enum StatusHistoryEvent {
+  status_change
+  re_routed
+  closed
+  escalated
+
+  @@map("status_history_event")
+}
+
+/// D-04 Q1
+enum ClosureReason {
+  citizen_confirmed
+  confirmation_timeout
+
+  @@map("closure_reason")
+}
+
+/// D-10 Q3
+enum RemarkVisibility {
+  citizen
+  internal
+
+  @@map("remark_visibility")
+}
+
+/// D-11 Q2
+enum ActorType {
+  staff
+  admin
+  system
+  citizen
+  office_link
+
+  @@map("actor_type")
+}
+
+/// D-11 Q1/Q3
+enum StatusLinkRevokeReason {
+  superseded
+  office_changed
+  terminal
+  used
+  disabled
+
+  @@map("status_link_revoke_reason")
+}
+
+/// D-03 FU4
+enum ReviewReason {
+  photo_low_conf
+  photo_dispute
+  retakes_exhausted
+  classification_low_conf
+
+  @@map("review_reason")
+}
+
+/// D-05 Q3
+enum RoadClass {
+  main
+  local
+  unsure
+
+  @@map("road_class")
+}
+
+/// D-14 Q6
+enum PrioritySource {
+  rules
+  manual
+
+  @@map("priority_source")
+}
+
+/// D-07 Q4 follow-up
+enum AiStep {
+  classify
+  duplicates
+
+  @@map("ai_step")
+}
+
+/// D-02 Q2
+enum IntegrityTier {
+  passed
+  failed
+  unknown
+
+  @@map("integrity_tier")
+}
+
+/// D-04 Q7
+enum Locale {
+  hi
+  en
+
+  @@map("locale")
+}
+
+/// D-02 Q4
+enum FlagReason {
+  spam
+  abusive
+  duplicate_abuse @map("duplicate-abuse")
+  other
+
+  @@map("flag_reason")
+}
+
+enum FlagState {
+  open
+  confirmed
+  dismissed
+
+  @@map("flag_state")
+}
+
+/// D-06 Q3b
+enum UlbKind {
+  nagar_nigam
+  nagar_palika_parishad
+  nagar_panchayat
+
+  @@map("ulb_kind")
+}
+
+/// D-06 Q3a
+enum MergeExtent {
+  full
+  partial
+
+  @@map("merge_extent")
+}
+
+/// D-06 Q4
+enum CoordSource {
+  shrug_pc11
+
+  @@map("coord_source")
+}
+
+/// D-05 Q4–Q5
+enum Helpline {
+  h1912  @map("1912")
+  h14420 @map("14420")
+
+  @@map("helpline")
+}
+
+// ---------- Geography (PRD §5.4 + D-05 Q1, D-06) ----------
+
+model District {
+  id         Int     @id @default(autoincrement())
+  lgd_code   String  @unique
+  name       String
+  name_hi    String?
+
+  blocks            Block[]
+  villages          Village[]
+  ulbs              Ulb[]
+  office_contacts   OfficeContact[]
+  users             User[]
+  helpline_coverage HelplineCoverage[]
+
+  @@map("districts")
+}
+
+model Block {
+  id          Int      @id @default(autoincrement())
+  district_id Int
+  lgd_code    String   @unique
+  name        String
+  name_hi     String?
+
+  district        District        @relation(fields: [district_id], references: [id])
+  villages        Village[]
+  gram_panchayats GramPanchayat[]
+  office_contacts OfficeContact[]
+  complaints      Complaint[]
+
+  @@index([district_id])
+  @@map("blocks")
+}
+
+model Village {
+  id            Int          @id @default(autoincrement())
+  district_id   Int
+  block_id      Int
+  lgd_code      String       @unique
+  name          String
+  name_hi       String?
+  area_type     AreaType
+  lat           Float?
+  lng           Float?
+  pc11_code     String?
+  coord_source  CoordSource?
+  merged_ulb_id Int?
+  merge_extent  MergeExtent?
+
+  district   District       @relation(fields: [district_id], references: [id])
+  block      Block          @relation(fields: [block_id], references: [id])
+  merged_ulb Ulb?           @relation("VillageMergedUlb", fields: [merged_ulb_id], references: [id])
+  gp_map     VillageGpMap[]
+  complaints Complaint[]
+
+  @@index([block_id])
+  @@map("villages")
+}
+
+model GramPanchayat {
+  id       Int     @id @default(autoincrement())
+  lgd_code String  @unique
+  name_en  String
+  name_hi  String?
+  block_id Int
+
+  block           Block           @relation(fields: [block_id], references: [id])
+  village_map     VillageGpMap[]
+  office_contacts OfficeContact[]
+
+  @@index([block_id])
+  @@map("gram_panchayats")
+}
+
+model VillageGpMap {
+  village_id Int
+  gp_id      Int
+  is_full    Boolean
+
+  village Village       @relation(fields: [village_id], references: [id])
+  gp      GramPanchayat @relation(fields: [gp_id], references: [id])
+
+  @@id([village_id, gp_id])
+  @@map("village_gp_map")
+}
+
+model Ulb {
+  id          Int     @id @default(autoincrement())
+  lgd_code    String  @unique
+  district_id Int
+  name_en     String
+  name_hi     String?
+  kind        UlbKind
+  supported   Boolean @default(false)
+
+  district        District        @relation(fields: [district_id], references: [id])
+  zones           Zone[]
+  wards           Ward[]
+  merged_villages Village[]       @relation("VillageMergedUlb")
+  office_contacts OfficeContact[]
+
+  @@map("ulbs")
+}
+
+model Zone {
+  id         Int       @id @default(autoincrement())
+  ulb_id     Int
+  name_en    String
+  name_hi    String?
+  source_url String
+  as_of      DateTime  @db.Date
+
+  ulb             Ulb             @relation(fields: [ulb_id], references: [id])
+  wards           Ward[]
+  office_contacts OfficeContact[]
+
+  @@map("zones")
+}
+
+model Ward {
+  id       Int      @id @default(autoincrement())
+  ulb_id   Int
+  lgd_code String   @unique
+  name_en  String
+  name_hi  String?
+  as_of    DateTime @db.Date
+  zone_id  Int?
+
+  ulb        Ulb         @relation(fields: [ulb_id], references: [id])
+  zone       Zone?       @relation(fields: [zone_id], references: [id])
+  complaints Complaint[]
+
+  @@index([ulb_id])
+  @@map("wards")
+}
+
+model HelplineCoverage {
+  id               Int      @id @default(autoincrement())
+  district_id      Int
+  area_type        AreaType
+  helpline         Helpline
+  source_url       String
+  last_verified_at DateTime
+
+  district District @relation(fields: [district_id], references: [id])
+
+  @@unique([district_id, area_type, helpline])
+  @@map("helpline_coverage")
+}
+
+// ---------- Offices and people ----------
+
+model Department {
+  id           Int  @id @default(autoincrement())
+  name         String @unique
+  /// Seeded from ROUTING_RULES; read-only (D-05 Q7).
+  category_map Json
+
+  office_contacts OfficeContact[]
+  users           User[]
+  complaints      Complaint[]
+
+  @@map("departments")
+}
+
+model OfficeContact {
+  id                  Int        @id @default(autoincrement())
+  district_id         Int
+  block_id            Int?
+  department_id       Int
+  /// 1–3 (CHECK in migration; D-05 Q6).
+  level               Int
+  office_kind         OfficeKind
+  office_name         String
+  email               String?
+  phone               String?
+  whatsapp            String?
+  source_url          String
+  last_verified_at    DateTime
+  status_link_enabled Boolean    @default(true)
+  // Derived (D-05 Q1, D-06 Q6): which GP / ULB / zone this contact serves.
+  gram_panchayat_id   Int?
+  ulb_id              Int?
+  zone_id             Int?
+
+  district       District       @relation(fields: [district_id], references: [id])
+  block          Block?         @relation(fields: [block_id], references: [id])
+  department     Department     @relation(fields: [department_id], references: [id])
+  gram_panchayat GramPanchayat? @relation(fields: [gram_panchayat_id], references: [id])
+  ulb            Ulb?           @relation(fields: [ulb_id], references: [id])
+  zone           Zone?          @relation(fields: [zone_id], references: [id])
+
+  users                 User[]
+  complaints            Complaint[]
+  status_links          StatusLink[]
+  status_history_actors StatusHistory[]
+  audit_actors          AuditLog[]
+
+  @@index([district_id, level])
+  @@map("office_contacts")
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  name          String
+  role          UserRole
+  /// "phone or email" (PRD §5.4): at least one is required (CHECK in migration).
+  email         String?  @unique
+  phone         String?
+  password_hash String
+  department_id Int?
+  district_id   Int?
+  /// Exactly one office per staff user; null for admin (D-05 Q8).
+  office_id     Int?
+  created_at    DateTime @default(now())
+
+  department Department?    @relation(fields: [department_id], references: [id])
+  district   District?      @relation(fields: [district_id], references: [id])
+  office     OfficeContact? @relation(fields: [office_id], references: [id])
+
+  status_history StatusHistory[]
+  audit_entries  AuditLog[]
+  flags_raised   ComplaintFlag[] @relation("FlagRaisedBy")
+  flags_decided  ComplaintFlag[] @relation("FlagDecidedBy")
+
+  @@map("users")
+}
+
+/// Anonymous per-install citizen credential (D-02 Q1). No contact fields (DEV-D02); token hash only.
+model Citizen {
+  id                   Int           @id @default(autoincrement())
+  token_hash           String        @unique
+  push_token           String?
+  created_at           DateTime      @default(now())
+  last_seen_at         DateTime?
+  integrity_tier       IntegrityTier @default(unknown)
+  integrity_checked_at DateTime?
+  locale               Locale        @default(hi)
+  recovery_lookup      String?       @unique
+  recovery_hash        String?
+  recovery_issued_at   DateTime?
+  blocked_at           DateTime?
+
+  complaints Complaint[]
+
+  @@map("citizens")
+}
+
+// ---------- Complaints ----------
+
+model Complaint {
+  id                      Int              @id @default(autoincrement())
+  /// JAW-<YYYY>-<6+ digits> (CHECK in migration; D-15 Q1).
+  complaint_no            String           @unique
+  /// Offline idempotency key (FR-1.5).
+  client_ref              String           @unique
+  citizen_id              Int
+  // Location: exactly one of village_id / ward_id (CHECK in migration; D-06 Q1).
+  village_id              Int?
+  ward_id                 Int?
+  block_id                Int?
+  /// Snapshot at submission (D-06 Q2).
+  area_type               AreaType
+  category                Category
+  note                    String?
+  description_en          String?
+  description_hi          String?
+  priority                Priority?
+  priority_source         PrioritySource   @default(rules)
+  priority_rules          Json?
+  priority_cues           Json?
+  priority_critical_rises Int              @default(0)
+  department_id           Int?
+  /// Current responsible office (D-05 Q8).
+  office_contact_id       Int?
+  /// 1–3 (CHECK in migration).
+  escalation_level        Int?
+  routing_trace           Json?
+  road_class              RoadClass        @default(unsure)
+  status                  ComplaintStatus  @default(submitted)
+  image_url               String?
+  /// Phone GPS fix, never a centroid (D-06 Q5).
+  lat                     Float?
+  lng                     Float?
+  gps_accuracy_m          Float?
+  ai_confidence           Float?
+  igrs_ref                String?
+  /// `none` in v1 or a provider name, snapshotted at submission (D-07 Q2).
+  vision_mode             String           @default("none")
+  ai_status               String?
+  ai_pending_steps        AiStep[]         @default([])
+  ai_attempts             Int              @default(0)
+  ai_next_attempt_at      DateTime?
+  ai_first_failed_at      DateTime?
+  /// Short code + ≤200 chars, never citizen content (D-07 Q4).
+  ai_last_error           String?
+  needs_review            Boolean          @default(false)
+  review_reason           ReviewReason?
+  review_flagged_at       DateTime?
+  image_verdict           String?
+  citizen_confirmed_at    DateTime?
+  citizen_action_since    DateTime?
+  /// 0–3 retakes (CHECK in migration; D-03 FU2).
+  photo_attempts          Int              @default(0)
+  withdrawn_at            DateTime?
+  rejection_reason        String?
+  routed_at               DateTime?
+  last_response_at        DateTime?
+  resolved_at             DateTime?
+  closed_at               DateTime?
+  closure_reason          ClosureReason?
+  reopened_at             DateTime?
+  /// 0–1 (CHECK in migration; D-04 Q4).
+  reopen_count            Int              @default(0)
+  not_fixed_note          String?
+  duplicate_of_id         Int?
+  duplicate_score         Float?
+  duplicate_count         Int              @default(0)
+  /// Citizen-note embedding (D-08 Q5a, pgvector).
+  embedding               Unsupported("vector(384)")?
+  /// SHA-256 of the share-link token; no plaintext column (D-10 Q1).
+  track_token_hash        String?          @unique
+  track_token_rotated_at  DateTime?
+  deletion_requested_at   DateTime?
+  data_deleted_at         DateTime?
+  created_at              DateTime         @default(now())
+  updated_at              DateTime         @updatedAt
+
+  citizen        Citizen        @relation(fields: [citizen_id], references: [id])
+  village        Village?       @relation(fields: [village_id], references: [id])
+  ward           Ward?          @relation(fields: [ward_id], references: [id])
+  block          Block?         @relation(fields: [block_id], references: [id])
+  department     Department?    @relation(fields: [department_id], references: [id])
+  office_contact OfficeContact? @relation(fields: [office_contact_id], references: [id])
+  duplicate_of   Complaint?     @relation("DuplicateOf", fields: [duplicate_of_id], references: [id])
+  duplicates     Complaint[]    @relation("DuplicateOf")
+
+  status_history StatusHistory[]
+  notifications  Notification[]
+  escalations    Escalation[]
+  status_links   StatusLink[]
+  flags          ComplaintFlag[]
+  routing_gaps   RoutingGap[]
+
+  @@index([village_id])
+  @@index([ward_id])
+  @@index([status])
+  @@index([created_at])
+  @@index([office_contact_id])
+  @@map("complaints")
+}
+
+/// Gapless per-IST-year counter (D-15 Q1–Q2).
+model ComplaintCounter {
+  year       Int @id
+  last_value Int
+
+  @@map("complaint_counters")
+}
+
+/// Append-only audit trail of status changes and same-status events (FR-5.4).
+model StatusHistory {
+  id                      Int                @id @default(autoincrement())
+  complaint_id            Int
+  old_status              ComplaintStatus?
+  new_status              ComplaintStatus
+  event                   StatusHistoryEvent @default(status_change)
+  remark                  String?
+  remark_visibility       RemarkVisibility   @default(citizen)
+  // Actor attribution (D-11 Q2; CHECK in migration).
+  actor_type              ActorType
+  actor_user_id           Int?
+  actor_office_contact_id Int?
+  status_link_id          Int?
+  changed_at              DateTime           @default(now())
+
+  complaint            Complaint      @relation(fields: [complaint_id], references: [id])
+  actor_user           User?          @relation(fields: [actor_user_id], references: [id])
+  actor_office_contact OfficeContact? @relation(fields: [actor_office_contact_id], references: [id])
+  status_link          StatusLink?    @relation(fields: [status_link_id], references: [id])
+
+  @@index([complaint_id, changed_at])
+  @@map("status_history")
+}
+
+model Escalation {
+  id           Int      @id @default(autoincrement())
+  complaint_id Int
+  from_level   Int
+  to_level     Int
+  reason       String
+  created_at   DateTime @default(now())
+
+  complaint Complaint @relation(fields: [complaint_id], references: [id])
+
+  @@index([complaint_id])
+  @@map("escalations")
+}
+
+/// Notifications outbox (D-09); `complaint_id` nullable for admin digests (D-12 Q3).
+model Notification {
+  id              Int                 @id @default(autoincrement())
+  complaint_id    Int?
+  channel         NotificationChannel
+  status          NotificationStatus  @default(queued)
+  kind            String
+  /// Citizen-reminder cycle = citizen_action_since (D-03 FU3).
+  cycle           DateTime?
+  delivery_mode   DeliveryMode
+  attempts        Int                 @default(0)
+  next_attempt_at DateTime?
+  sent_at         DateTime?
+  error           String?
+  dedupe_key      String?             @unique
+  created_at      DateTime            @default(now())
+
+  complaint Complaint? @relation(fields: [complaint_id], references: [id])
+
+  @@unique([complaint_id, kind, cycle])
+  @@index([status, next_attempt_at])
+  @@map("notifications")
+}
+
+/// One-time office status links (D-11). Token hash only; one live link per (complaint, office)
+/// via a partial unique index in the migration.
+model StatusLink {
+  id                 Int                     @id @default(autoincrement())
+  token_hash         String                  @unique
+  complaint_id       Int
+  office_contact_id  Int
+  issued_at          DateTime                @default(now())
+  expires_at         DateTime
+  used_at            DateTime?
+  revoked_at         DateTime?
+  revoke_reason      StatusLinkRevokeReason?
+  used_ip_hash       String?
+  used_ua_summary    String?
+  forensics_clear_at DateTime?
+
+  complaint      Complaint     @relation(fields: [complaint_id], references: [id])
+  office_contact OfficeContact @relation(fields: [office_contact_id], references: [id])
+
+  status_history StatusHistory[]
+  audit_entries  AuditLog[]
+
+  @@map("status_links")
+}
+
+/// Non-status admin actions (§2.1); same actor attribution as status_history (D-11 Q2).
+model AuditLog {
+  id                      Int       @id @default(autoincrement())
+  actor_type              ActorType
+  actor_user_id           Int?
+  actor_office_contact_id Int?
+  status_link_id          Int?
+  action                  String
+  entity                  String
+  entity_id               String?
+  before                  Json?
+  after                   Json?
+  reason                  String?
+  created_at              DateTime  @default(now())
+
+  actor_user           User?          @relation(fields: [actor_user_id], references: [id])
+  actor_office_contact OfficeContact? @relation(fields: [actor_office_contact_id], references: [id])
+  status_link          StatusLink?    @relation(fields: [status_link_id], references: [id])
+
+  @@index([entity, entity_id])
+  @@map("audit_log")
+}
+
+/// Admin contact-gap flags (D-05 Q1/Q6, D-06 Q6).
+model RoutingGap {
+  id           Int         @id @default(autoincrement())
+  complaint_id Int?
+  level        Int
+  office_kind  OfficeKind?
+  missing      String
+  created_at   DateTime    @default(now())
+  resolved_at  DateTime?
+
+  complaint Complaint? @relation(fields: [complaint_id], references: [id])
+
+  @@map("routing_gaps")
+}
+
+/// Report flags (D-02 Q4).
+model ComplaintFlag {
+  id           Int        @id @default(autoincrement())
+  complaint_id Int
+  raised_by    Int
+  reason       FlagReason
+  note         String?
+  state        FlagState  @default(open)
+  decided_by   Int?
+  decided_at   DateTime?
+  created_at   DateTime   @default(now())
+
+  complaint  Complaint @relation(fields: [complaint_id], references: [id])
+  raiser     User      @relation("FlagRaisedBy", fields: [raised_by], references: [id])
+  decider    User?     @relation("FlagDecidedBy", fields: [decided_by], references: [id])
+
+  @@map("complaint_flags")
+}
+
+/// Content-free deletion record, re-applied after a restore (D-02 Q6).
+model DeletionLedger {
+  complaint_id Int      @id
+  deleted_at   DateTime
+
+  @@map("deletion_ledger")
+}
+
+/// Fixed-window rate-limit counters in PostgreSQL, no Redis (D-02 Q3).
+model RateLimitCounter {
+  scope        String
+  key          String
+  window_start DateTime
+  count        Int
+
+  @@id([scope, key, window_start])
+  @@map("rate_limit_counters")
+}

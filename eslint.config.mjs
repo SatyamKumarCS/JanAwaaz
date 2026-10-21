@@ -10,9 +10,16 @@ export default tseslint.config(
       '**/node_modules/**', '**/dist/**', '**/.next/**', '**/.expo/**',
       '.scratch/**', 'services/ai/**', 'apps/mobile/**', 'apps/dashboard/**',
       '**/*.config.js', '**/*.config.cjs',
+      'services/api/src/generated/**',
     ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { files: ['**/*.{js,mjs,ts}'], languageOptions: { globals: { ...globals.node } } },
+  // CommonJS helpers (e.g. Jest global setup) use require/module.exports by design.
+  {
+    files: ['**/*.cjs'],
+    languageOptions: { sourceType: 'commonjs', globals: { ...globals.node } },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
 );
