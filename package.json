@@ -26,6 +26,7 @@
     "db:migrate": "node scripts/db.mjs local migrate dev",
     "db:deploy": "node scripts/db.mjs local migrate deploy",
     "db:status": "node scripts/db.mjs local migrate status",
+    "db:seed:geo": "node scripts/db.mjs local --exec pnpm --filter @janawaaz/api exec tsx src/geo/seed-cli.ts",
     "db:neon:status": "node scripts/db.mjs neon migrate status",
     "db:neon:migrate": "node scripts/db.mjs neon migrate deploy",
     "enums:export": "pnpm --filter @janawaaz/shared run export-enums",
