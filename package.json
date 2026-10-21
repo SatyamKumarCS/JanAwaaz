@@ -17,6 +17,7 @@
     "test:db": "node scripts/db.mjs local --exec pnpm --filter @janawaaz/api run test:db",
     "check:pins": "node scripts/check-pins.mjs",
     "check:images": "node scripts/check-images.mjs",
+    "check:compose": "node scripts/check-compose.mjs",
     "check:ignore": "git check-ignore .env .env.neon",
     "db:up": "docker compose up -d --wait db",
     "db:down": "docker compose stop db",

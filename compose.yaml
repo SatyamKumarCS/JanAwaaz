@@ -27,7 +27,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M # provisional until I-41 measures it (D-18 Q10)
+          memory: 512M # provisional until measured (I-41)
 
 volumes:
   pgdata:

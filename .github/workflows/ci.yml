@@ -34,6 +34,8 @@ jobs:
         run: pnpm check:pins
       - name: Images / size guard (D-08 Q6)
         run: pnpm check:images
+      - name: Compose / image policy (I-41, D-18 Q6/Q10)
+        run: pnpm check:compose
       - name: Guard script tests
         run: pnpm test:scripts
       - name: Env files ignored
