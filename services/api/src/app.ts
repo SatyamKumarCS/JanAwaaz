@@ -1,5 +1,6 @@
 import express, { type Router } from 'express';
 import { ComplaintStatus } from '@janawaaz/shared';
+import { type CitizenAuthDeps, citizenAuthRouter } from './citizens/auth';
 import { errorHandler, notFoundHandler } from './http/errors';
 import { type AiStatus, type DbReadiness, healthRouter } from './http/health';
 import { accessLog, requestId } from './http/request-context';
@@ -10,6 +11,8 @@ export interface AppOptions {
   production?: boolean;
   db?: DbReadiness;
   ai?: AiStatus;
+  /** Citizen registration (I-07); omitted in tests that don't need it. */
+  citizens?: CitizenAuthDeps;
   /** Mounts feature routes before the 404 handler (later slices; also used by tests). */
   routes?: (router: Router) => void;
 }
@@ -32,6 +35,7 @@ export function createApp(opts: AppOptions = {}) {
     res.json({ status: 'ok', service: 'api', statuses: statuses.length });
   });
   app.use(healthRouter({ db: opts.db, ai: opts.ai }));
+  if (opts.citizens) app.use(citizenAuthRouter(opts.citizens));
 
   if (opts.routes) {
     const router = express.Router();
