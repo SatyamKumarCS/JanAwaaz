@@ -7,14 +7,15 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "jest",
-    "test:db": "jest --config jest.db.config.cjs --runInBand"
+    "test:db": "NODE_OPTIONS=--experimental-vm-modules jest --config jest.db.config.cjs --runInBand"
   },
   "dependencies": {
     "@janawaaz/shared": "workspace:*",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "express": "5.3.0",
-    "pg": "8.23.1"
+    "pg": "8.23.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/express": "5.0.6",
