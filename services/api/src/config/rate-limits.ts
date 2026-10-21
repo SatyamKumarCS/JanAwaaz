@@ -3,16 +3,19 @@
 export interface RateLimits {
   registerPerIpHour: number;
   registerPerIpDay: number;
+  uploadSignPerCredentialMinute: number;
 }
 
 export const DEFAULT_RATE_LIMITS: RateLimits = {
   registerPerIpHour: 10,
   registerPerIpDay: 30,
+  uploadSignPerCredentialMinute: 120,
 };
 
 const ENV: Record<keyof RateLimits, string> = {
   registerPerIpHour: 'RATE_LIMITS_REGISTER_PER_IP_HOUR',
   registerPerIpDay: 'RATE_LIMITS_REGISTER_PER_IP_DAY',
+  uploadSignPerCredentialMinute: 'RATE_LIMITS_UPLOAD_SIGN_PER_CREDENTIAL_MINUTE',
 };
 
 /** Reads overrides from the environment; a malformed value fails startup instead of silently defaulting. */

@@ -106,7 +106,7 @@ describe('POST /auth/citizen/register', () => {
 
   test('the daily per-IP cap applies across hours', async () => {
     let t = Date.UTC(2026, 9, 21, 0, 30, 0);
-    const { app } = setup({ registerPerIpHour: 10, registerPerIpDay: 3 }, () => t);
+    const { app } = setup({ ...DEFAULT_RATE_LIMITS, registerPerIpHour: 10, registerPerIpDay: 3 }, () => t);
     for (let i = 0; i < 3; i++) {
       expect((await request(app).post('/auth/citizen/register')).status).toBe(201);
       t += 3600_000;
@@ -176,7 +176,7 @@ describe('requireCitizen and ensureOwner', () => {
 
 describe('RATE_LIMITS_* configuration', () => {
   test('defaults from D-02 Q3 and valid overrides', () => {
-    expect(rateLimitsFromEnv({})).toEqual({ registerPerIpHour: 10, registerPerIpDay: 30 });
+    expect(rateLimitsFromEnv({})).toEqual({ registerPerIpHour: 10, registerPerIpDay: 30, uploadSignPerCredentialMinute: 120 });
     expect(rateLimitsFromEnv({ RATE_LIMITS_REGISTER_PER_IP_HOUR: '5' }).registerPerIpHour).toBe(5);
   });
 

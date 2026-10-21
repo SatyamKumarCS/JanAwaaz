@@ -45,7 +45,7 @@ test('/health/ready → 503 when the database is unreachable, without leaking de
   try {
     const res = await request(createApp({ db: createDbReadiness(down, migrations) })).get('/health/ready');
     expect(res.status).toBe(503);
-    expect(res.body).toEqual({ status: 'not_ready', checks: { database: 'database_unreachable', ai: 'not_configured' } });
+    expect(res.body).toEqual({ status: 'not_ready', checks: { database: 'database_unreachable', ai: 'not_configured', storage: 'not_configured' } });
   } finally {
     await down.$disconnect();
   }

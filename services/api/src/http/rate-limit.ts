@@ -1,7 +1,7 @@
 // Fixed-window rate limits backed by PostgreSQL `rate_limit_counters` (D-02 Q3, spec §7): one atomic
 // upsert per request, no Redis and no in-memory-only counters. Keys are hashed before storage.
 import { createHash } from 'node:crypto';
-import type { Request, RequestHandler } from 'express';
+import type { Request, RequestHandler, Response } from 'express';
 import { HttpError } from './errors';
 
 export interface RateLimitStore {
@@ -37,8 +37,8 @@ export interface RateLimitOptions {
   limit: number;
   windowSeconds: number;
   store: RateLimitStore;
-  /** Defaults to the client IP (resolved through the trusted proxy). */
-  key?: (req: Request) => string;
+  /** Defaults to the client IP (resolved through the trusted proxy). `res` gives access to res.locals. */
+  key?: (req: Request, res: Response) => string;
   now?: () => number;
 }
 
@@ -53,7 +53,7 @@ export function rateLimit(opts: RateLimitOptions): RequestHandler {
     try {
       const t = now();
       const windowStart = Math.floor(t / windowMs) * windowMs;
-      const count = await opts.store.hit(opts.scope, hashKey(keyOf(req)), new Date(windowStart));
+      const count = await opts.store.hit(opts.scope, hashKey(keyOf(req, res)), new Date(windowStart));
       if (count > opts.limit) {
         const retryAfter = Math.max(1, Math.ceil((windowStart + windowMs - t) / 1000));
         res.setHeader('Retry-After', String(retryAfter));

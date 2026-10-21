@@ -5,6 +5,10 @@ import { errorHandler, notFoundHandler } from './http/errors';
 import { type AiStatus, type DbReadiness, healthRouter } from './http/health';
 import { accessLog, requestId } from './http/request-context';
 import { requireHttps, securityHeaders } from './http/security';
+import type { LocalPhotoStore } from './storage/local-photo-store';
+import type { PhotoStore } from './storage/photo-store';
+import { devStorageRouter, uploadSignRouter } from './storage/routes';
+import type { UploadClaims } from './storage/upload-claim';
 
 export interface AppOptions {
   /** Production mode: trust the platform proxy, require HTTPS and send HSTS. */
@@ -13,6 +17,8 @@ export interface AppOptions {
   ai?: AiStatus;
   /** Citizen registration (I-07); omitted in tests that don't need it. */
   citizens?: CitizenAuthDeps;
+  /** Photo storage (I-12): the signing route needs `citizens`; `local` adds the /dev-storage routes. */
+  photos?: { store: PhotoStore; claims: UploadClaims; local?: LocalPhotoStore; maxBytes: number };
   /** Mounts feature routes before the 404 handler (later slices; also used by tests). */
   routes?: (router: Router) => void;
 }
@@ -27,6 +33,8 @@ export function createApp(opts: AppOptions = {}) {
   app.use(accessLog);
   app.use(securityHeaders({ hsts: Boolean(opts.production) }));
   if (opts.production) app.use(requireHttps);
+  // Raw image bodies: mounted before the JSON parser.
+  if (opts.photos?.local) app.use(devStorageRouter(opts.photos.local, opts.photos.maxBytes));
   app.use(express.json({ limit: '100kb' }));
 
   app.get('/health', (_req, res) => {
@@ -34,8 +42,12 @@ export function createApp(opts: AppOptions = {}) {
     const statuses: readonly ComplaintStatus[] = ComplaintStatus.options;
     res.json({ status: 'ok', service: 'api', statuses: statuses.length });
   });
-  app.use(healthRouter({ db: opts.db, ai: opts.ai }));
+  app.use(healthRouter({ db: opts.db, ai: opts.ai, storage: opts.photos ? () => opts.photos!.store.health() : undefined }));
   if (opts.citizens) app.use(citizenAuthRouter(opts.citizens));
+  if (opts.citizens && opts.photos) {
+    const { store, rateLimitStore, limits, now } = opts.citizens;
+    app.use(uploadSignRouter({ photos: opts.photos.store, claims: opts.photos.claims, citizens: store, rateLimitStore, limits, now }));
+  }
 
   if (opts.routes) {
     const router = express.Router();

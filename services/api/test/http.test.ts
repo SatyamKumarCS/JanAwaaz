@@ -228,7 +228,7 @@ describe('health', () => {
   test('/health/ready → 200 when the database is ready; AI is reported but not required', async () => {
     const res = await request(createApp({ db: async () => ({ ok: true }), ai: async () => 'down' })).get('/health/ready');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ready', checks: { database: 'ok', ai: 'down' } });
+    expect(res.body).toEqual({ status: 'ready', checks: { database: 'ok', ai: 'down', storage: 'not_configured' } });
   });
 
   test('/health/ready → 503 when the database is unreachable', async () => {

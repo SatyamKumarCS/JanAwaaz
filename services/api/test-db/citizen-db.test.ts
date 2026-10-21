@@ -13,7 +13,7 @@ const prisma = createPrismaClient(targets().testUrl);
 const deps = {
   store: prismaCitizenStore(prisma),
   rateLimitStore: createPgRateLimitStore(prisma),
-  limits: { registerPerIpHour: 3, registerPerIpDay: 30 },
+  limits: { registerPerIpHour: 3, registerPerIpDay: 30, uploadSignPerCredentialMinute: 120 },
 };
 const app = createApp({
   citizens: deps,

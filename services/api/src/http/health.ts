@@ -11,6 +11,7 @@ export interface ReadinessResult {
 
 export type DbReadiness = () => Promise<ReadinessResult>;
 export type AiStatus = () => Promise<'up' | 'down' | 'not_configured'>;
+export type StorageStatus = () => Promise<'ok' | 'degraded'>;
 
 interface RawQuery {
   $queryRaw<T>(query: TemplateStringsArray, ...values: unknown[]): Promise<T>;
@@ -40,7 +41,7 @@ export function createDbReadiness(db: RawQuery, expectedMigrations: string[]): D
   };
 }
 
-export function healthRouter(deps: { db?: DbReadiness; ai?: AiStatus }) {
+export function healthRouter(deps: { db?: DbReadiness; ai?: AiStatus; storage?: StorageStatus }) {
   const router = Router();
   router.get('/health/live', (_req, res) => {
     res.json({ status: 'ok' });
@@ -48,9 +49,11 @@ export function healthRouter(deps: { db?: DbReadiness; ai?: AiStatus }) {
   router.get('/health/ready', async (_req, res) => {
     const db: ReadinessResult = deps.db ? await deps.db() : { ok: false, reason: 'not_configured' };
     const ai = deps.ai ? await deps.ai().catch(() => 'down' as const) : 'not_configured';
+    // Storage is reported but never makes the API unready (I-12: paused/unreachable storage is non-fatal).
+    const storage = deps.storage ? await deps.storage().catch(() => 'degraded' as const) : 'not_configured';
     res.status(db.ok ? 200 : 503).json({
       status: db.ok ? 'ready' : 'not_ready',
-      checks: { database: db.ok ? 'ok' : db.reason, ai },
+      checks: { database: db.ok ? 'ok' : db.reason, ai, storage },
     });
   });
   return router;
