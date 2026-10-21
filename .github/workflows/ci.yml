@@ -17,6 +17,9 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+          # pnpm is provided by Corepack in the next step; setup-node v5's automatic
+          # package-manager cache would otherwise look for pnpm before it exists.
+          package-manager-cache: false
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - uses: astral-sh/setup-uv@v6
