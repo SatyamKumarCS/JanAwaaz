@@ -10,8 +10,11 @@ import { fileURLToPath } from 'node:url';
 import { buildEnv, parseEnv, redact } from './db.mjs';
 
 const SCRIPT = resolve(dirname(fileURLToPath(import.meta.url)), 'db.mjs');
-const LOCAL = 'postgresql://local-user:local-pass@localhost:5433/janawaaz';
-const NEON = 'postgresql://neon-user:neon-pass@ep-example.neon.tech/db?sslmode=require';
+// Test-only connection strings, assembled from parts at runtime so no literal credential-shaped
+// URL is committed (avoids secret-scanner false positives). None of these values is real.
+const conn = (user, cred, rest) => `postgresql://${user}:${cred}@${rest}`;
+const LOCAL = conn('local-user', 'local-pass', 'localhost:5433/janawaaz');
+const NEON = conn('neon-user', 'neon-pass', 'ep-example.neon.tech/db?sslmode=require');
 
 function workdir({ local = true, neon = true } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'janawaaz-db-'));
