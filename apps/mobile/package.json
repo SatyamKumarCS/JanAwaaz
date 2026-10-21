@@ -20,6 +20,7 @@
     "nativewind": "4.2.7",
     "react-native-reanimated": "4.7.1",
     "react-native-worklets": "0.13.0",
+    "react-native-css-interop": "0.2.7",
     "react-native-safe-area-context": "5.10.1"
   },
   "devDependencies": {
